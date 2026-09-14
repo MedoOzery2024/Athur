@@ -73,11 +73,15 @@ jobs:
       - name: Install dependencies
         working-directory: app
         run: flutter pub get
-      
+
+      - name: Create google-services.json
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > app/android/app/google-services.json
+
       - name: Build APK
         working-directory: app
         run: flutter build apk --release
-      
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
