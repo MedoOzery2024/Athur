@@ -7,7 +7,7 @@ allprojects {
     // errors from plugins that shipped with an older compileSdk.
     afterEvaluate {
         extensions.findByType(com.android.build.gradle.BaseExtension::class.java)
-            ?.compileSdkVersion(34)
+            ?.compileSdkVersion(36)
     }
 }
 
