@@ -54,7 +54,6 @@ server/pubspec.lock
 .env.production
 
 # Firebase
-**/firebase_options.dart
 **/google-services.json
 **/google-services*.json
 **/GoogleService-Info.plist
