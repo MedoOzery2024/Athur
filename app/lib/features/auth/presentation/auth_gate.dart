@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/auth_controller.dart';
-import '../../../core/theme/athur_colors.dart';
 import '../../home/presentation/home_shell.dart';
 import 'phone_screen.dart';
 

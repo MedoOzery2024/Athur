@@ -157,7 +157,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                             MaterialPageRoute(
                               builder: (_) => ChatScreen(
                                 chatId: _filteredContacts[index].id,
-                                chatName: _filteredContacts[index].name,
+                                recipientName: _filteredContacts[index].name,
                                 isOnline: _filteredContacts[index].isOnline,
                                 lastSeen: _filteredContacts[index].lastSeen,
                               ),
@@ -211,17 +211,19 @@ class _ContactsScreenState extends State<ContactsScreen> {
           ),
           TextButton(
             onPressed: () async {
-              // Send friend request to phone number.
               final phone = phoneController.text.trim();
               if (phone.isEmpty) return;
-              
+
+              Navigator.pop(context);
+
+              final messenger = ScaffoldMessenger.of(context);
               try {
                 final api = ApiClient.instance;
                 await api.post('/api/v1/friends/request', body: {
                   'phone_number': phone,
                 });
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text('Friend request sent!'),
                       backgroundColor: AthurColors.success,
@@ -231,7 +233,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
               } catch (e) {
                 debugPrint('[Athur][contacts] Failed to send friend request: $e');
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text('Failed to send friend request'),
                       backgroundColor: AthurColors.danger,
@@ -239,7 +241,6 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   );
                 }
               }
-              Navigator.pop(context);
             },
             child: const Text(
               'Add',

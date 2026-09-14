@@ -227,7 +227,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? Image.network(
                                   _avatarUrl!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _buildAvatarFallback(),
+                                  errorBuilder: (_, _, _) => _buildAvatarFallback(),
                                 )
                               : _buildAvatarFallback(),
                         ),
