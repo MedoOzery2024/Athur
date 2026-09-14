@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 
+import '../config/api_config.dart';
 import 'secure_storage.dart';
 
 /// Handles file, image, and video selection and upload for chat attachments.
@@ -79,7 +80,7 @@ class FileSharingService {
       // Create multipart request.
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://10.0.2.2:8080/api/v1/media/upload'),
+        Uri.parse('${ApiConfig.httpBaseUrl}/api/v1/media/upload'),
       );
 
       // Add headers.

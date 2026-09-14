@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -79,7 +81,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       debugPrint('[Athur][profile] Failed to save profile: $e');
       if (mounted) {
-        setState(() => _error = 'Failed to save profile');
+        setState(() => _error = 'Failed to save profile: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}');
       }
     }
     if (mounted) setState(() => _isSaving = false);
@@ -98,10 +100,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (image != null) {
         setState(() => _isLoading = true);
         
-        // Upload image to server.
-        final uploadResult = await FileSharingService.instance.uploadImage(
-          source: ImageSource.gallery,
-        );
+        // Upload the already-picked image directly (don't pick again).
+        final uploadResult = await FileSharingService.instance
+            .uploadFileToServer(SharedFile(
+              filePath: image.path,
+              fileName: image.name,
+              mimeType: 'image/jpeg',
+              fileSize: await File(image.path).length(),
+              type: SharedFileType.image,
+            ));
         
         if (uploadResult != null) {
           // Update profile with avatar URL.

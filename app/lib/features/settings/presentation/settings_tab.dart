@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/athur_assets.dart';
+import '../../../core/services/app_update_service.dart';
 import '../../../core/theme/athur_colors.dart';
 import '../../../core/theme/athur_tokens.dart';
 import '../../../core/widgets/athur_logo.dart';
 import '../../../core/widgets/athur_scrollbar.dart';
+import '../../../core/widgets/update_dialog.dart';
 import 'profile_screen.dart';
 
 /// Settings / Profile tab.
@@ -91,6 +93,13 @@ class SettingsTab extends StatelessWidget {
             const Divider(height: AthurSpacing.xl),
             _SectionLabel('About'),
             _Tile(
+              icon: Icons.system_update_outlined,
+              title: 'Check for updates',
+              subtitle: 'See if a newer version is available',
+              enabled: true,
+              onTap: () => _checkForUpdates(context),
+            ),
+            _Tile(
               icon: Icons.info_outline,
               title: 'About Athur',
               subtitle:
@@ -122,6 +131,32 @@ class SettingsTab extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  void _checkForUpdates(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final updateInfo = await AppUpdateService.instance.checkForUpdate();
+      if (updateInfo != null && context.mounted) {
+        UpdateDialog.show(context, updateInfo);
+      } else if (context.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('You are on the latest version!'),
+            backgroundColor: AthurColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Failed to check for updates'),
+            backgroundColor: AthurColors.danger,
+          ),
+        );
+      }
+    }
   }
 }
 
