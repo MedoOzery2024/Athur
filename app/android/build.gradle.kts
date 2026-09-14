@@ -3,6 +3,12 @@ allprojects {
         google()
         mavenCentral()
     }
+    // Force all subprojects to compile against SDK 34 to fix AAR metadata
+    // errors from plugins that shipped with an older compileSdk.
+    afterEvaluate {
+        extensions.findByType(com.android.build.gradle.BaseExtension::class.java)
+            ?.compileSdkVersion(34)
+    }
 }
 
 val newBuildDir: Directory =

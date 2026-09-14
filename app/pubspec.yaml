@@ -54,9 +54,9 @@ dependencies:
   # WebSocket for real-time messaging.
   web_socket_channel: ^3.0.3
   # WebRTC for audio/video calls.
-  flutter_webrtc: ^0.12.3
+  flutter_webrtc: ^0.12.12+hotfix.1
   # Voice recording for voice messages.
-  record: ^6.1.1
+  record: ^6.2.1
   # File picker for documents, videos, audio.
   # v12 is required: older versions compile their Android modules against
   # android-34, which the AAR-metadata check rejects (it needs >= 36).
