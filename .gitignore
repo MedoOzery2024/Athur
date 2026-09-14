@@ -1,0 +1,95 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code related
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+pubspec.lock
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Server dependencies
+server/.dart_tool/
+server/.packages
+server/build/
+server/pubspec.lock
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Firebase
+**/firebase_options.dart
+**/google-services.json
+**/google-services*.json
+**/GoogleService-Info.plist
+**/firebase-adminsdk*.json
+**/service-account*.json
+**/*serviceaccount*.json
+# Secrets folders (must never enter the repository)
+Secrects/
+Secrets/
+secrets/
+
+# Keys and certificates
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Media uploads
+athur_media/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa

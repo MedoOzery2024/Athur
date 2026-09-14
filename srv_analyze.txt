@@ -1,0 +1,7 @@
+Analyzing server...
+
+  error - lib\src\api\middleware\cors_middleware.dart:47:52 - The argument type 'String?' can't be assigned to the parameter type 'String'.  - argument_type_not_assignable
+   info - lib\src\api\routes\ws_routes.dart:15:41 - Angle brackets will be interpreted as HTML. Try using backticks around the content with angle brackets, or try replacing `<` with `&lt;` and `>` with `&gt;`. - unintended_html_in_doc_comment
+   info - lib\src\api\routes\ws_routes.dart:15:52 - Angle brackets will be interpreted as HTML. Try using backticks around the content with angle brackets, or try replacing `<` with `&lt;` and `>` with `&gt;`. - unintended_html_in_doc_comment
+
+3 issues found.

@@ -1,0 +1,44 @@
+# =============================================================================
+# ATHUR · Local development infrastructure
+# =============================================================================
+# Starts the services the backend needs for local development:
+#   * postgres  — the primary application database
+#
+# Usage (from D:\Athur\infra):
+#   docker compose up -d
+#   docker compose logs -f postgres
+#   docker compose down          # stop (keeps data)
+#   docker compose down -v       # stop and DELETE the data volume
+#
+# Then run the migrations (from D:\Athur):
+#   $env:ATHUR_DATABASE_URL = "postgresql://athur:athur_dev_pw@localhost:5432/athur"
+#   .\db\scripts\migrate.ps1
+#
+# NOTE: the password below is a LOCAL DEVELOPMENT value only. Production
+# credentials are supplied exclusively through environment variables/secrets —
+# never committed to the repository.
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: athur-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: athur
+      POSTGRES_PASSWORD: athur_dev_pw
+      POSTGRES_DB: athur
+      # Deterministic collation so ordering is stable across machines.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - athur_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U athur -d athur"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  athur_pgdata:

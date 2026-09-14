@@ -1,0 +1,166 @@
+name: athur
+description: "Athur — a real secure communication platform (calls, messaging, social)."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.2
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+# ---------------------------------------------------------------------------
+# ATHUR — DEPENDENCIES
+#
+# Rule: only add a package when Flutter/Dart does NOT already provide the
+# capability, and when the package is actively maintained for Android + iOS.
+# Phase 1 keeps this list intentionally MINIMAL. Each phase adds only what it
+# needs (see docs/ARCHITECTURE.md and docs/ROADMAP.md).
+# ---------------------------------------------------------------------------
+dependencies:
+  flutter:
+    sdk: flutter
+  # iOS-style icons (thin convenience layer over the Material/Cupertino icon
+  # fonts). Ships with Flutter's own icon set; no platform channels.
+  cupertino_icons: ^1.0.8
+  # Firebase — required for push notifications (FCM) and future services.
+  firebase_core: ^3.12.1
+  firebase_messaging: ^15.2.1
+  firebase_auth: ^5.5.1
+  # HTTP client for API calls.
+  http: ^1.2.2
+  # Secure storage for JWT tokens (encrypted SharedPreferences on Android).
+  # v11 is required together with file_picker v12: the older v9 pinned
+  # win32 ^5, which conflicts with the win32 ^6 that file_picker v12 needs.
+  flutter_secure_storage: ^11.0.0
+  # WebSocket for real-time messaging.
+  web_socket_channel: ^3.0.3
+  # WebRTC for audio/video calls.
+  flutter_webrtc: ^0.12.3
+  # Voice recording for voice messages.
+  record: ^6.1.1
+  # File picker for documents, videos, audio.
+  # v12 is required: older versions compile their Android modules against
+  # android-34, which the AAR-metadata check rejects (it needs >= 36).
+  file_picker: ^12.0.0
+  # Image/video picker from gallery or camera.
+  image_picker: ^1.1.2
+  # Photo viewer for viewing images full-screen.
+  photo_view: ^0.15.0
+  # Video player for playing video messages.
+  video_player: ^2.9.3
+  # Audio player for ringtones and voice message playback.
+  audioplayers: ^6.1.0
+  # Path provider for temporary file storage.
+  path_provider: ^2.1.5
+  # Permission handler for microphone, camera, storage.
+  permission_handler: ^11.3.1
+  # Path manipulation for file operations.
+  path: ^1.9.0
+  # Package info for version checking.
+  # v10 required: v8 pinned win32 ^5, which conflicts with the win32 ^6 that
+  # flutter_secure_storage v11 and file_picker v12 resolve to.
+  package_info_plus: ^10.0.0
+  # URL launcher for opening download links.
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # Official Flutter lint set (recommended practices).
+  flutter_lints: ^6.0.0
+  # Generates Android/iOS launcher icons from a single source image.
+  # Needed because we ship our own Athur logo (1024x1024) as the app icon.
+  # Actively maintained (fluttercommunity). Android + iOS supported.
+  flutter_launcher_icons: ^0.14.4
+  # Generates the native splash screen (Android/iOS/Windows) from our logo.
+  # Needed because Athur must show a branded splash before Flutter boots.
+  # Actively maintained (jonbhanson). Android + iOS supported.
+  flutter_native_splash: ^2.4.6
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+  # Athur assets.
+  assets:
+    - assets/images/logo.png
+    - assets/audio/ringtone.mp3
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/to/resolution-aware-images
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/to/asset-from-package
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
+# ---------------------------------------------------------------------------
+# Launcher icons (generated from the official Athur logo).
+# Run: flutter pub run flutter_launcher_icons
+# ---------------------------------------------------------------------------
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+  # Adaptive icon (Android 8+): black background, gold logo on top.
+  # NOTE: full 6-digit hex is required by the tooling.
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/images/logo.png"
+  # Flatten iOS alpha (Apple rejects transparent icons).
+  remove_alpha_ios: true
+  min_sdk_android: 23
+# ---------------------------------------------------------------------------
+# Native splash screen — black background with the Athur logo.
+# Run: dart run flutter_native_splash:create
+# ---------------------------------------------------------------------------
+flutter_native_splash:
+  color: "#000000"
+  image: assets/images/logo.png
+  android_12:
+    color: "#000000"
+    image: assets/images/logo.png
+  android: true
+  ios: true
+  web: false

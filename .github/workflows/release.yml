@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-android:
+    name: Build & Release Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.0'
+          channel: 'stable'
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+      
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+      
+      - name: Build App Bundle
+        working-directory: app
+        run: flutter build appbundle --release
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/bundle/release/app-release.aab
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-version:
+    name: Update Version JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Create version.json
+        run: |
+          cat > version.json << EOF
+          {
+            "version": "${{ steps.version.outputs.VERSION }}",
+            "build_number": "${{ github.run_number }}",
+            "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "download_url": "${{ github.server_url }}/${{ github.repository }}/releases/latest/download/app-release.apk",
+            "changelog": "${{ github.event.head_commit.message }}"
+          }
+          EOF
+      
+      - name: Upload version.json
+        uses: softprops/action-gh-release@v2
+        with:
+          files: version.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

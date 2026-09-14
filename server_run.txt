@@ -1,0 +1,11 @@
+[Athur][server] Starting with config: {host: 0.0.0.0, port: 8080, environment: development, databaseUrl: postgresql://***:***@localhost:5432/athur, turnConfigured: true, meteredDomain: athur.metered.live, fcmPathConfigured: true}
+[Athur][server] PostgreSQL connected.
+[Athur][server] TURN enabled via athur.metered.live (Metered).
+[Athur][server] FCM enabled for project athur-91a41.
+[Athur][server] Listening on http://0.0.0.0:8080
+[Athur][server] GET   /health → 200 (48ms)
+[Athur][server] GET   /health/ready → 200 (5ms)
+[Athur][server] GET   /version → 200 (1ms)
+[Athur][server] GET   /api/v1/rtc/ice-servers → 200 (1042ms)
+[Athur][server] GET   /api/v1/push/status → 200 (1ms)
+[Athur][server] GET   /health → 200 (1ms)

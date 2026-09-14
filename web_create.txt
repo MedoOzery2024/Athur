@@ -1,0 +1,25 @@
+Recreating project ....
+  web\favicon.png (created)
+  web\icons\Icon-192.png (created)
+  web\icons\Icon-512.png (created)
+  web\icons\Icon-maskable-192.png (created)
+  web\icons\Icon-maskable-512.png (created)
+  web\index.html (created)
+  web\manifest.json (created)
+Resolving dependencies...
+Downloading packages...
+Got dependencies.
+Upgrading analysis_options.yaml to exclude build and platform directories.
+Wrote 7 files.
+
+All done!
+You can find general documentation for Flutter at: https://docs.flutter.dev/
+Detailed API documentation is available at: https://api.flutter.dev/
+If you prefer video documentation, consider: https://www.youtube.com/c/flutterdev
+
+In order to run your application, type:
+
+  $ flutter run
+
+Your application code is in .\lib\main.dart.
+

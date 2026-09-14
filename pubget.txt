@@ -1,0 +1,15 @@
+Waiting for another flutter command to release the startup lock...
+Resolving dependencies...
+    Because no versions of flutter_secure_storage match >9.2.4 <10.0.0 and flutter_secure_storage 9.2.4 depends on flutter_secure_storage_windows ^3.1.2, flutter_secure_storage ^9.2.4 requires flutter_secure_storage_windows ^3.1.2.
+    And because no versions of flutter_secure_storage_windows match >3.1.2 <4.0.0, flutter_secure_storage ^9.2.4 requires flutter_secure_storage_windows 3.1.2.
+(1) So, because flutter_secure_storage_windows 3.1.2 depends on win32 ^5.0.0 and every version of windows_file_picker depends on win32 ^6.3.0, flutter_secure_storage ^9.2.4 is incompatible with windows_file_picker.
+
+    Because file_picker >=12.0.0 <12.1.3 depends on windows_file_picker ^1.0.0 and file_picker >=12.1.3 <12.2.0 depends on windows_file_picker ^1.1.0, file_picker >=12.0.0 <12.2.0 requires windows_file_picker ^1.0.0.
+    And because file_picker >=12.2.0 <12.3.0 depends on windows_file_picker ^1.2.0 and file_picker >=12.3.0 depends on windows_file_picker ^1.3.0, file_picker >=12.0.0 requires windows_file_picker ^1.0.0.
+    And because flutter_secure_storage ^9.2.4 is incompatible with windows_file_picker (1), flutter_secure_storage ^9.2.4 is incompatible with file_picker >=12.0.0.
+    So, because athur depends on both flutter_secure_storage ^9.2.4 and file_picker ^12.0.0, version solving failed.
+
+
+You can try the following suggestion to make the pubspec resolve:
+* Consider downgrading your constraint on file_picker: flutter pub add file_picker:^8.3.7
+Failed to update packages.

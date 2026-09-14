@@ -1,0 +1,51 @@
+00:00 +0: loading test\fcm_service_test.dart
+00:00 +0: test\server_test.dart: parsePostgresUrl parses a full URL
+00:00 +1: test\fcm_service_test.dart: FcmMessage.toV1Body includes data, notification, and high-priority android/apns
+00:00 +2: test\fcm_service_test.dart: FcmMessage.toV1Body includes data, notification, and high-priority android/apns
+00:00 +3: test\server_test.dart: parsePostgresUrl decodes percent-encoded credentials
+00:00 +4: test\server_test.dart: parsePostgresUrl decodes percent-encoded credentials
+00:00 +5: test\fcm_service_test.dart: FcmService.send posts to the v1 endpoint and returns the message name
+00:00 +6: test\fcm_service_test.dart: FcmService.send posts to the v1 endpoint and returns the message name
+00:00 +7: test\fcm_service_test.dart: FcmService.send posts to the v1 endpoint and returns the message name
+00:00 +8: test\fcm_service_test.dart: FcmService.send posts to the v1 endpoint and returns the message name
+00:00 +9: test\fcm_service_test.dart: FcmService.send posts to the v1 endpoint and returns the message name
+00:00 +10: test\server_test.dart: GET /health returns ok without touching the database
+[Athur][server] GET   /health → 200 (29ms)
+00:00 +10: test\fcm_service_test.dart: GET /api/v1/push/status reports configured=false when FCM is absent
+[Athur][server] GET   /api/v1/push/status → 200 (22ms)
+00:00 +11: test\fcm_service_test.dart: GET /api/v1/push/status reports configured=false when FCM is absent
+00:00 +11: test\server_test.dart: GET /health/ready returns 200 when the database is reachable
+[Athur][server] GET   /health/ready → 200 (1ms)
+00:00 +12: test\fcm_service_test.dart: GET /api/v1/push/status reports configured=false when FCM is absent
+00:00 +12: test\server_test.dart: GET /health/ready returns 503 when the database is down
+[Athur][server] GET   /health/ready → 503 (1ms)
+00:00 +13: test\fcm_service_test.dart: GET /api/v1/push/status reports configured=false when FCM is absent
+00:00 +13: test\server_test.dart: GET /version reports the server version
+[Athur][server] GET   /version → 200 (1ms)
+00:00 +14: test\fcm_service_test.dart: GET /api/v1/push/status reports configured=false when FCM is absent
+00:00 +15: test\fcm_service_test.dart: GET /api/v1/push/status reports configured=false when FCM is absent
+00:00 +16: test\server_test.dart: security headers are present on responses
+[Athur][server] GET   /health → 200 (1ms)
+00:00 +17: test\fcm_service_test.dart: GET /api/v1/push/status reports projectId when FCM is wired
+[Athur][server] GET   /api/v1/push/status → 200 (2ms)
+00:00 +18: test\fcm_service_test.dart: GET /api/v1/push/status reports projectId when FCM is wired
+00:00 +19: test\fcm_service_test.dart: POST /api/v1/push/test returns 503 when FCM is not configured
+00:00 +20: test\fcm_service_test.dart: POST /api/v1/push/test rejects a missing token
+00:00 +21: test\fcm_service_test.dart: POST /api/v1/push/test sends through the injected FCM service
+[Athur][server] POST  /api/v1/push/test → 200 (2ms)
+00:00 +22: test\fcm_service_test.dart: parseDotEnv parses keys, strips quotes and ignores comments
+00:00 +23: test\fcm_service_test.dart: parseDotEnv handles single quotes and skips malformed lines
+00:00 +24: test\fcm_service_test.dart: GET /api/v1/rtc/ice-servers is reachable is not swallowed by the health catch-all
+00:00 +25: test\turn_credential_service_test.dart: IceServer.fromJson parses a single string url
+00:00 +26: test\turn_credential_service_test.dart: IceServer.fromJson parses a list of urls
+00:00 +27: test\turn_credential_service_test.dart: IceServer.fromJson rejects an entry with no urls
+00:00 +28: test\turn_credential_service_test.dart: IceServer.fromJson serialises back with a single url as a string
+00:00 +29: test\turn_credential_service_test.dart: IceServer.fromJson serialises multiple urls as a list
+00:00 +30: test\turn_credential_service_test.dart: TurnCredentialService caching caches a successful response and refetches when invalidated
+00:00 +31: test\turn_credential_service_test.dart: TurnCredentialService caching adds Google STUN servers when the provider omits them
+00:00 +32: test\turn_credential_service_test.dart: TurnCredentialService caching does not duplicate Google STUN when already present
+00:00 +33: test\turn_credential_service_test.dart: TurnCredentialService caching throws a clear error on 401
+00:00 +34: test\turn_credential_service_test.dart: TurnCredentialService caching throws when the payload is not a JSON array
+00:00 +35: test\turn_credential_service_test.dart: TurnCredentialService caching throws when the array is empty
+00:00 +36: test\turn_credential_service_test.dart: TurnCredentialService caching the error message never contains the API key
+00:01 +37: All tests passed!

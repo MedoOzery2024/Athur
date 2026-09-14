@@ -1,0 +1,42 @@
+name: athur_server
+description: Athur backend API + realtime server (Dart / Shelf). Talks to PostgreSQL, serves REST + WebSocket, mints TURN credentials and sends push notifications.
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.13.2
+
+# ---------------------------------------------------------------------------
+# Dependency rationale (rule: justify each package before adding it).
+#
+#  shelf            — minimal, official HTTP server interface. Dart's standard
+#                     way to build REST APIs; no heavyweight framework needed.
+#  shelf_router     — declarative routing on top of shelf.
+#  shelf_web_socket — WebSocket upgrade support for the realtime layer.
+#                     (Real WebSocket protocol handling; not a mock.)
+#  postgres         — actively maintained pure-Dart PostgreSQL driver with
+#                     connection pooling. Required because the app must never
+#                     talk to PostgreSQL directly; only this server does.
+#
+#  googleapis_auth — official Google library that mints OAuth access tokens
+#                     from a service-account JSON (FCM HTTP v1). The private
+#                     key is never logged or sent to the Flutter app.
+# ---------------------------------------------------------------------------
+dependencies:
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  shelf_web_socket: ^3.0.0
+  web_socket_channel: ^3.0.3
+  postgres: ^3.5.6
+  crypto: ^3.0.6
+  googleapis_auth: ^2.0.0
+  # JWT — compact, stateless auth tokens (access + refresh).
+  dart_jsonwebtoken: ^2.14.3
+  # UUID — unique identifiers for devices, sessions, idempotency keys.
+  uuid: ^4.5.1
+  # Path manipulation for file storage.
+  path: ^1.9.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.15

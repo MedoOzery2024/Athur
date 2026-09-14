@@ -1,0 +1,7 @@
+Compiling lib\main.dart for the Web...                          
+Unexpected wasm dry run failure (1):
+
+'record-use' is now enabled by default; this flag is no longer required.
+'record-use' is now enabled by default; this flag is no longer required.
+
+Use --no-wasm-dry-run to disable these warnings.
