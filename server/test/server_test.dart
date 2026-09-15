@@ -144,10 +144,24 @@ void main() {
   });
 
   group('unknown route', () {
-    test('returns a structured 404 JSON error', () async {
+    test('an unauthenticated request to an unknown API path is rejected', () async {
+      // Authenticated route groups run the auth middleware before route
+      // matching, so an anonymous caller gets 401 rather than 404. That is
+      // intentional: it does not reveal which paths exist to strangers.
       final app = _buildApp(dbReady: true);
       final response = await app(
         Request('GET', Uri.parse('http://localhost/api/v1/does-not-exist')),
+      );
+      expect(response.statusCode, 401);
+      final body = await _json(response);
+      final error = body['error'] as Map<String, Object?>;
+      expect(error['code'], 'UNAUTHORIZED');
+    });
+
+    test('a non-API path returns a structured 404 JSON error', () async {
+      final app = _buildApp(dbReady: true);
+      final response = await app(
+        Request('GET', Uri.parse('http://localhost/definitely/not/here')),
       );
       expect(response.statusCode, 404);
       expect(response.headers['content-type'], contains('application/json'));

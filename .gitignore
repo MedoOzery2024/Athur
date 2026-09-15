@@ -29,7 +29,9 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-pubspec.lock
+# NOTE: pubspec.lock IS intentionally committed for an application (it pins
+# exact dependency versions so every build/CI run is reproducible). Only
+# library packages omit it. Do not add pubspec.lock back here.
 
 # Symbolication related
 app.*.symbols
@@ -46,7 +48,6 @@ app.*.map.json
 server/.dart_tool/
 server/.packages
 server/build/
-server/pubspec.lock
 
 # Environment variables
 .env
@@ -92,3 +93,13 @@ coverage/
 *.apk
 *.aab
 *.ipa
+# ngrok binary and tunnel logs (large, machine-specific, never committed)
+**/ngrok.exe
+ngrok_log.txt
+ngrok_err.txt
+# Local build/run logs
+*.txt
+!docs/**/*.txt
+# Kotlin/Gradle session files
+**/.kotlin/sessions/
+**/build_log*.txt

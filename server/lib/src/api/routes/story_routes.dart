@@ -5,6 +5,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
+import '../../services/auth_service.dart';
 import '../middleware/auth_middleware.dart';
 
 /// Stories routes: create, list, view, react, delete.
@@ -17,11 +18,24 @@ import '../middleware/auth_middleware.dart';
 ///   POST   /api/v1/stories/:id/react — React to story
 ///   DELETE /api/v1/stories/:id       — Delete story
 class StoryRoutes {
-  StoryRoutes({required this.db});
+  StoryRoutes({required this.db, required this.authService});
 
   final Database db;
+
+  /// Used to verify the bearer token. Every stories route requires a valid
+  /// session: without this middleware `request.userId` is always null and every
+  /// call is rejected as unauthorized — which is why stories appeared broken.
+  final AuthService authService;
+
   static const _uuid = Uuid();
 
+  /// Router whose handlers assume they have already been authenticated.
+  ///
+  /// Handlers with path parameters (e.g. `_viewStory(Request, String)`) cannot
+  /// be wrapped individually because `shelf_router` maps them to a two-arg
+  /// callable that is not a `Handler`. Instead the caller applies
+  /// [authMiddleware] to the whole router (see AthurServer), which injects the
+  /// `userId` into the request context before the handler runs.
   Router get router {
     final router = Router();
     router.post('/stories', _createStory);
@@ -32,6 +46,10 @@ class StoryRoutes {
     router.delete('/stories/<id>', _deleteStory);
     return router;
   }
+
+  /// The stories router wrapped so that every request is authenticated first.
+  Handler get authenticatedRouter =>
+      const Pipeline().addMiddleware(authMiddleware(authService)).addHandler(router.call);
 
   /// Creates a new story (text, image, or video).
   Future<Response> _createStory(Request request) async {
@@ -92,21 +110,37 @@ class StoryRoutes {
             headers: {'Content-Type': 'application/json'});
       }
 
-      // Get stories from friends (accepted contacts) that haven't expired.
+      // Get stories from accepted contacts that have not expired.
+      //
+      // IMPORTANT: `contacts` rows exist only for ACCEPTED connections and the
+      // table has no `status` column (that lives on friend_requests). Filtering
+      // on `status = 'accepted'` was a bug that broke the whole stories feed.
+      // A contact edge is directional, so we union both directions.
       final result = await db.execute(
         '''
-        SELECT s.*, u.display_name as author_name,
-               (SELECT COUNT(*) FROM story_views sv WHERE sv.story_id = s.id) as view_count,
-               EXISTS(SELECT 1 FROM story_views sv WHERE sv.story_id = s.id AND sv.viewer_id = @userId) as has_viewed
+        SELECT s.id, s.author_id, s.story_type, s.body, s.payload,
+               s.visibility, s.view_count, s.expires_at, s.created_at,
+               p.display_name AS author_name,
+               EXISTS(
+                 SELECT 1 FROM story_views sv
+                 WHERE sv.story_id = s.id AND sv.viewer_id = @userId
+               ) AS has_viewed
         FROM stories s
         JOIN users u ON s.author_id = u.id
-        WHERE s.author_id IN (
-            SELECT contact_user_id FROM contacts WHERE user_id = @userId AND status = 'accepted'
-            UNION
-            SELECT user_id FROM contacts WHERE contact_user_id = @userId AND status = 'accepted'
-        )
-        AND s.expires_at > NOW()
+        LEFT JOIN user_profiles p ON p.user_id = u.id
+        WHERE s.author_id <> @userId
+          AND s.deleted_at IS NULL
+          AND s.expires_at > NOW()
+          AND (
+            s.visibility = 'public'
+            OR s.author_id IN (
+              SELECT contact_user_id FROM contacts WHERE user_id = @userId
+              UNION
+              SELECT user_id FROM contacts WHERE contact_user_id = @userId
+            )
+          )
         ORDER BY s.created_at DESC
+        LIMIT 100
         ''',
         parameters: {'userId': userId},
       );
@@ -183,29 +217,36 @@ class StoryRoutes {
             headers: {'Content-Type': 'application/json'});
       }
 
-      // Check if already viewed.
+      // Check if already viewed. The story_views table has a COMPOSITE primary
+      // key (story_id, viewer_id) and a `viewed_at` column — there is no `id`
+      // or `created_at` column. Selecting a non-existent column was what made
+      // story viewing fail.
       final existing = await db.execute(
-        'SELECT id FROM story_views WHERE story_id = @storyId AND viewer_id = @userId',
+        'SELECT 1 FROM story_views WHERE story_id = @storyId AND viewer_id = @userId',
         parameters: {'storyId': id, 'userId': userId},
       );
 
       if (existing.isEmpty) {
+        // Insert the view. `watched_ms` is optional; we record the view time
+        // via the column's own default (viewed_at).
         await db.execute(
           '''
-          INSERT INTO story_views (id, story_id, viewer_id, watched_ms, created_at)
-          VALUES (@id, @storyId, @userId, 0, NOW())
+          INSERT INTO story_views (story_id, viewer_id, watched_ms)
+          VALUES (@storyId, @userId, 0)
+          ON CONFLICT (story_id, viewer_id) DO NOTHING
           ''',
           parameters: {
-            'id': _uuid.v4(),
             'storyId': id,
             'userId': userId,
           },
         );
 
-        // Update view count.
+        // Keep the denormalised counter in sync with the real rows.
         await db.execute(
           '''
-          UPDATE stories SET view_count = (SELECT COUNT(*) FROM story_views WHERE story_id = @storyId), updated_at = NOW()
+          UPDATE stories
+          SET view_count = (SELECT COUNT(*) FROM story_views WHERE story_id = @storyId),
+              updated_at = NOW()
           WHERE id = @storyId
           ''',
           parameters: {'storyId': id},
@@ -240,15 +281,18 @@ class StoryRoutes {
             headers: {'Content-Type': 'application/json'});
       }
 
-      // Upsert reaction.
+      // Upsert reaction. story_reactions has a composite key (story_id, user_id)
+      // and only a `created_at` column — there is no `id` or `updated_at`, so
+      // the previous statement failed. Re-use created_at as the last-changed
+      // timestamp by refreshing it on conflict.
       await db.execute(
         '''
-        INSERT INTO story_reactions (id, story_id, user_id, reaction, created_at, updated_at)
-        VALUES (@id, @storyId, @userId, @reaction, NOW(), NOW())
-        ON CONFLICT (story_id, user_id) DO UPDATE SET reaction = @reaction, updated_at = NOW()
+        INSERT INTO story_reactions (story_id, user_id, reaction)
+        VALUES (@storyId, @userId, @reaction)
+        ON CONFLICT (story_id, user_id)
+        DO UPDATE SET reaction = EXCLUDED.reaction, created_at = NOW()
         ''',
         parameters: {
-          'id': _uuid.v4(),
           'storyId': id,
           'userId': userId,
           'reaction': reaction,

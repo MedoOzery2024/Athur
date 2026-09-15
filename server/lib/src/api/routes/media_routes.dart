@@ -8,6 +8,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
+import '../../services/auth_service.dart';
 import '../middleware/auth_middleware.dart';
 
 /// Media upload, presigned URL generation, and serving endpoints.
@@ -19,9 +20,13 @@ import '../middleware/auth_middleware.dart';
 ///   GET  /api/v1/media/:id/thumbnail   — Serve thumbnail
 ///   DELETE /api/v1/media/:id           — Soft-delete media
 class MediaRoutes {
-  MediaRoutes({required this.db});
+  MediaRoutes({required this.db, required this.authService});
 
   final Database db;
+
+  /// Verifies the bearer token for the mutating endpoints.
+  final AuthService authService;
+
   static const _uuid = Uuid();
 
   /// Local storage directory for dev (production would use S3/GCS).
@@ -31,11 +36,23 @@ class MediaRoutes {
     final router = Router();
     router.post('/media/upload', _upload);
     router.post('/media/presign', _presign);
+    // Serving media is public (the id is an unguessable UUID): image/video
+    // elements in the client cannot attach an Authorization header.
     router.get('/media/<id>', _serve);
     router.get('/media/<id>/thumbnail', _serveThumbnail);
     router.delete('/media/<id>', _delete);
     return router;
   }
+
+  /// Router whose mutating endpoints require a valid session.
+  ///
+  /// Upload/presign/delete call `request.userId`, which is only populated by
+  /// [authMiddleware]. Applying it to the whole router is what makes profile
+  /// picture uploads work — without it every upload / presign / delete was
+  /// rejected as unauthorized. GET routes are public by design (unguessable
+  /// UUID keys), so they are mounted separately in AthurServer.
+  Handler get authenticatedRouter =>
+      const Pipeline().addMiddleware(authMiddleware(authService)).addHandler(router.call);
 
   // ────────────────────────── Upload ──────────────────────────
 

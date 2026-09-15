@@ -5,6 +5,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../data/database.dart';
+import '../../services/auth_service.dart';
 import '../middleware/auth_middleware.dart';
 
 /// Friend request routes: send, accept, reject, cancel, list.
@@ -18,9 +19,15 @@ import '../middleware/auth_middleware.dart';
 ///   GET    /api/v1/friends                  — List friends
 ///   GET    /api/v1/friends/requests         — List pending requests
 class FriendRoutes {
-  FriendRoutes({required this.db});
+  FriendRoutes({required this.db, required this.authService});
 
   final Database db;
+
+  /// Verifies the bearer token. Every friend route calls `request.userId`,
+  /// which only [authMiddleware] populates — without it the whole friend system
+  /// returned 403 for every request.
+  final AuthService authService;
+
   static const _uuid = Uuid();
 
   Router get router {
@@ -34,6 +41,10 @@ class FriendRoutes {
     router.get('/friends/requests', _listRequests);
     return router;
   }
+
+  /// Router with authentication applied to every friend endpoint.
+  Handler get authenticatedRouter =>
+      const Pipeline().addMiddleware(authMiddleware(authService)).addHandler(router.call);
 
   // ────────────────────────── Send Request ──────────────────────────
 

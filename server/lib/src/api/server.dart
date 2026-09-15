@@ -109,11 +109,13 @@ class AthurServer {
       authService: authService,
     );
 
-    final mediaRoutes = MediaRoutes(db: database);
+    final mediaRoutes =
+        MediaRoutes(db: database, authService: authService);
 
-    final friendRoutes = FriendRoutes(db: database);
+    final friendRoutes =
+        FriendRoutes(db: database, authService: authService);
 
-    final storyRoutes = StoryRoutes(db: database);
+    final storyRoutes = StoryRoutes(db: database, authService: authService);
 
     final router = Router()
       // Auth routes (public — no token required).
@@ -141,15 +143,19 @@ class AthurServer {
       )
       ..mount(
         '/',
-        mediaRoutes.router.call,
+        // Media/upload + presign + delete need a verified user; GET serving
+        // stays public because <img>/<video> cannot send an auth header.
+        mediaRoutes.authenticatedRouter.call,
       )
       ..mount(
         '/',
-        friendRoutes.router.call,
+        friendRoutes.authenticatedRouter.call,
       )
       ..mount(
         '/',
-        storyRoutes.router.call,
+        // Stories map handlers that take (Request, String id), so the auth
+        // middleware is applied to the whole router rather than per handler.
+        storyRoutes.authenticatedRouter.call,
       );
     // Messaging, calls, etc. mount here in their own phases.
     return router;

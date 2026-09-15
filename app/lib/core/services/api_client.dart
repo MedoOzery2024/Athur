@@ -69,6 +69,11 @@ class ApiClient {
     final headers = <String, String>{
       'Content-Type': 'application/json; charset=utf-8',
       'Accept': 'application/json',
+      // ngrok (free tier) serves an HTML interstitial to browsers unless this
+      // header is present. Without it, API calls through an ngrok tunnel
+      // receive that HTML page instead of JSON and parsing fails. The header is
+      // harmless against a normal server, so it is always sent.
+      'ngrok-skip-browser-warning': 'true',
     };
     if (_accessToken != null) {
       headers['Authorization'] = 'Bearer $_accessToken';
