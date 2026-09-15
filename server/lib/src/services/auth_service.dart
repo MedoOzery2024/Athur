@@ -32,12 +32,15 @@ class AuthService {
     String purpose = 'signup',
   }) async {
     final code = _generateOtpCode();
-    final codeHash = sha256.convert(utf8.encode(code)).toString();
 
-    // Rate-limit: reject if there's an unexpired challenge in the last minute.
+    // Rate-limit: reject if an unexpired challenge was created in the last
+    // minute for this destination.
+    // NOTE: the schema column is `destination` (+ `channel`), not
+    // `phone_number` — using the wrong name made every OTP request fail.
     final recent = await db.execute(
       'SELECT 1 FROM otp_challenges '
-      'WHERE phone_number = @phone '
+      'WHERE destination = @phone '
+      "AND channel = 'phone' "
       'AND purpose = @purpose '
       "AND created_at > now() - interval '1 minute'",
       parameters: {'phone': phoneNumber, 'purpose': purpose},
@@ -50,13 +53,23 @@ class AuthService {
       );
     }
 
+    // `salt` is required by the schema (NOT NULL). A per-challenge random salt
+    // is generated here and stored; verification re-hashes with it below.
+    final salt = _generateSalt();
+    final saltedHash =
+        sha256.convert(utf8.encode('$salt$code')).toString();
+
     await db.execute(
-      'INSERT INTO otp_challenges (phone_number, purpose, code_hash, expires_at) '
-      'VALUES (@phone, @purpose, @hash, now() + interval \'$_otpExpiryMinutes minutes\')',
+      'INSERT INTO otp_challenges '
+      '(channel, destination, purpose, code_hash, salt, max_attempts, expires_at) '
+      "VALUES ('phone', @phone, @purpose, @hash, @salt, @maxAttempts, "
+      "now() + interval '$_otpExpiryMinutes minutes')",
       parameters: {
         'phone': phoneNumber,
         'purpose': purpose,
-        'hash': codeHash,
+        'hash': saltedHash,
+        'salt': salt,
+        'maxAttempts': _otpMaxAttempts,
       },
     );
 
@@ -70,8 +83,9 @@ class AuthService {
     String purpose = 'signup',
   }) async {
     final rows = await db.execute(
-      'SELECT id, code_hash, attempts, expires_at FROM otp_challenges '
-      'WHERE phone_number = @phone AND purpose = @purpose '
+      'SELECT id, code_hash, salt, attempts, expires_at, consumed_at '
+      'FROM otp_challenges '
+      'WHERE destination = @phone AND channel = \'phone\' AND purpose = @purpose '
       'ORDER BY created_at DESC LIMIT 1',
       parameters: {'phone': phoneNumber, 'purpose': purpose},
     );
@@ -85,8 +99,20 @@ class AuthService {
     }
 
     final row = rows.first;
-    final attempts = row[2] as int;
-    final expiresAt = row[3] as DateTime;
+    final storedHash = row[1] as String;
+    final salt = row[2] as String;
+    final attempts = row[3] as int;
+    final expiresAt = row[4] as DateTime;
+    final consumedAt = row[5];
+
+    // A challenge can only be used once.
+    if (consumedAt != null) {
+      throw const AuthError(
+        statusCode: 400,
+        code: 'OTP_ALREADY_USED',
+        message: 'This code has already been used. Request a new one.',
+      );
+    }
 
     if (attempts >= _otpMaxAttempts) {
       throw const AuthError(
@@ -104,14 +130,16 @@ class AuthService {
       );
     }
 
-    // Increment attempts.
+    // Increment the attempt counter BEFORE checking, so a wrong code always
+    // consumes an attempt (brute-force protection).
     await db.execute(
       'UPDATE otp_challenges SET attempts = attempts + 1 WHERE id = @id',
       parameters: {'id': row[0]},
     );
 
-    final inputHash = sha256.convert(utf8.encode(code)).toString();
-    if (inputHash != row[1]) {
+    final inputHash =
+        sha256.convert(utf8.encode('$salt$code')).toString();
+    if (inputHash != storedHash) {
       throw const AuthError(
         statusCode: 400,
         code: 'OTP_INVALID',
@@ -119,9 +147,10 @@ class AuthService {
       );
     }
 
-    // Delete used OTP to prevent replay.
+    // Mark consumed (single-use) instead of deleting, so the record remains
+    // for audit and replay detection.
     await db.execute(
-      'DELETE FROM otp_challenges WHERE id = @id',
+      'UPDATE otp_challenges SET consumed_at = now() WHERE id = @id',
       parameters: {'id': row[0]},
     );
 
@@ -139,11 +168,14 @@ class AuthService {
 
     await db.transaction<void>((session) async {
       // Insert user.
+      // NOTE: `users.username` has a CHECK constraint requiring the shape
+      // ^[a-z0-9_]{3,32}$ — a raw phone number (contains '+' and is too long)
+      // violates it. We generate a valid placeholder that is unique.
       await session.execute(
         'INSERT INTO users (id, username, status) VALUES (@id, @username, @status)',
         parameters: {
           'id': userId,
-          'username': phoneNumber, // temporary; updated in profile setup
+          'username': _generatePlaceholderUsername(),
           'status': 'active',
         },
       );
@@ -157,16 +189,16 @@ class AuthService {
         },
       );
 
-      // Insert phone number.
+      // Insert phone number. The column is `e164`, not `phone_number`.
       await session.execute(
-        'INSERT INTO phone_numbers (user_id, phone_number, is_primary, is_verified) '
-        'VALUES (@id, @phone, true, true)',
+        'INSERT INTO phone_numbers (user_id, e164, is_primary, is_verified, verified_at) '
+        'VALUES (@id, @phone, true, true, now())',
         parameters: {'id': userId, 'phone': phoneNumber},
       );
 
-      // Insert auth identity.
+      // Insert auth identity. `auth_identities` has no `is_primary` column.
       await session.execute(
-        'INSERT INTO auth_identities (user_id, provider, provider_uid, is_primary) '
+        'INSERT INTO auth_identities (user_id, provider, provider_uid, is_verified) '
         'VALUES (@id, @provider, @uid, true)',
         parameters: {
           'id': userId,
@@ -181,8 +213,9 @@ class AuthService {
 
   /// Finds an existing user by phone number.
   Future<String?> findUserByPhone(String phoneNumber) async {
+    // Column is `e164`.
     final rows = await db.execute(
-      'SELECT user_id FROM phone_numbers WHERE phone_number = @phone LIMIT 1',
+      'SELECT user_id FROM phone_numbers WHERE e164 = @phone LIMIT 1',
       parameters: {'phone': phoneNumber},
     );
     return rows.isEmpty ? null : rows.first[0].toString();
@@ -209,19 +242,78 @@ class AuthService {
       ttlMinutes: _refreshTokenTtlDays * 24 * 60,
     );
 
-    // Store hashed refresh token in DB.
+    // Persist the session chain: device → session → refresh token.
+    //
+    // Schema reality: `refresh_tokens` has NO `device_id` column — the device
+    // is reached through `session_id` → `sessions.device_id`. Storing tokens
+    // with the wrong column made every login fail.
+    final sessionId = await _ensureSession(
+      userId: userId,
+      deviceId: deviceId,
+    );
+
     final tokenHash = sha256.convert(utf8.encode(refreshToken)).toString();
     await db.execute(
-      'INSERT INTO refresh_tokens (user_id, token_hash, device_id, expires_at) '
-      'VALUES (@uid, @hash, @device, now() + interval \'$_refreshTokenTtlDays days\')',
+      'INSERT INTO refresh_tokens (session_id, user_id, token_hash, expires_at) '
+      'VALUES (@session, @uid, @hash, now() + interval \'$_refreshTokenTtlDays days\')',
       parameters: {
+        'session': sessionId,
         'uid': userId,
         'hash': tokenHash,
-        'device': deviceId,
       },
     );
 
     return TokenPair(accessToken: accessToken, refreshToken: refreshToken);
+  }
+
+  /// Finds or creates the device row for [deviceId], then opens a fresh
+  /// session for it. Returns the session id.
+  ///
+  /// `deviceId` here is the client's stable install id, which maps to
+  /// `devices.install_id` (unique per user).
+  Future<String> _ensureSession({
+    required String userId,
+    required String deviceId,
+  }) async {
+    // Reuse the device row if this install already registered.
+    final existing = await db.execute(
+      'SELECT id FROM devices WHERE user_id = @uid AND install_id = @install LIMIT 1',
+      parameters: {'uid': userId, 'install': deviceId},
+    );
+
+    final String deviceRowId;
+    if (existing.isNotEmpty) {
+      deviceRowId = existing.first[0].toString();
+      // Refresh last-activity so presence/session screens stay accurate.
+      await db.execute(
+        'UPDATE devices SET last_active_at = now(), updated_at = now() '
+        'WHERE id = @id',
+        parameters: {'id': deviceRowId},
+      );
+    } else {
+      deviceRowId = _uuid.v4();
+      await db.execute(
+        'INSERT INTO devices (id, user_id, install_id, platform) '
+        "VALUES (@id, @uid, @install, 'android')",
+        parameters: {
+          'id': deviceRowId,
+          'uid': userId,
+          'install': deviceId,
+        },
+      );
+    }
+
+    // Open a new session for this device.
+    final sessionId = _uuid.v4();
+    await db.execute(
+      'INSERT INTO sessions (id, user_id, device_id) VALUES (@id, @uid, @device)',
+      parameters: {
+        'id': sessionId,
+        'uid': userId,
+        'device': deviceRowId,
+      },
+    );
+    return sessionId;
   }
 
   /// Verifies an access token and returns the userId.
@@ -270,18 +362,24 @@ class AuthService {
       );
     }
 
-    // Check if the token hash exists in DB (replay detection).
+    // Check if the token hash exists and is still usable (replay detection).
     final tokenHash = sha256.convert(utf8.encode(refreshToken)).toString();
     final rows = await db.execute(
-      'SELECT id FROM refresh_tokens WHERE token_hash = @hash AND user_id = @uid',
+      'SELECT id, session_id FROM refresh_tokens '
+      'WHERE token_hash = @hash AND user_id = @uid '
+      'AND revoked_at IS NULL AND rotated_at IS NULL',
       parameters: {'hash': tokenHash, 'uid': userId},
     );
 
     if (rows.isEmpty) {
-      // Possible token reuse — delete all tokens for this device.
+      // The token is unknown or already used: likely replay/theft. Revoke every
+      // live refresh token for this user's device, forcing a fresh login.
       await db.execute(
-        'DELETE FROM refresh_tokens WHERE device_id = @device AND user_id = @uid',
-        parameters: {'device': deviceId, 'uid': userId},
+        'UPDATE refresh_tokens SET revoked_at = now(), revoked_reason = \'reuse_detected\' '
+        'WHERE user_id = @uid AND session_id IN '
+        '(SELECT id FROM sessions WHERE user_id = @uid AND device_id IN '
+        '(SELECT id FROM devices WHERE user_id = @uid AND install_id = @install))',
+        parameters: {'uid': userId, 'install': deviceId},
       );
       throw const AuthError(
         statusCode: 401,
@@ -290,24 +388,40 @@ class AuthService {
       );
     }
 
-    // Delete the used token.
+    // Rotate: mark the old token as used and link nothing yet (the successor is
+    // recorded below by updating this row's `rotated_at`).
+    final oldTokenId = rows.first[0].toString();
     await db.execute(
-      'DELETE FROM refresh_tokens WHERE id = @id',
-      parameters: {'id': rows.first[0]},
+      'UPDATE refresh_tokens SET rotated_at = now() WHERE id = @id',
+      parameters: {'id': oldTokenId},
     );
 
-    // Mint new pair.
+    // Mint a new pair (which opens a new session for the device).
     return mintTokens(userId: userId, deviceId: deviceId);
   }
 
-  /// Logs out: deletes all refresh tokens for a device.
+  /// Logs out: revokes the device's live refresh tokens and ends its sessions.
+  ///
+  /// We revoke rather than delete so the security audit trail survives.
   Future<void> logout({
     required String userId,
     required String deviceId,
   }) async {
+    // Revoke refresh tokens that belong to any session of this device.
     await db.execute(
-      'DELETE FROM refresh_tokens WHERE user_id = @uid AND device_id = @device',
-      parameters: {'uid': userId, 'device': deviceId},
+      'UPDATE refresh_tokens SET revoked_at = now(), revoked_reason = \'logout\' '
+      'WHERE user_id = @uid AND revoked_at IS NULL AND session_id IN '
+      '(SELECT s.id FROM sessions s JOIN devices d ON d.id = s.device_id '
+      ' WHERE s.user_id = @uid AND d.install_id = @install)',
+      parameters: {'uid': userId, 'install': deviceId},
+    );
+
+    // End the device's open sessions.
+    await db.execute(
+      'UPDATE sessions SET ended_at = now(), ended_reason = \'logout\' '
+      'WHERE user_id = @uid AND ended_at IS NULL AND device_id IN '
+      '(SELECT id FROM devices WHERE user_id = @uid AND install_id = @install)',
+      parameters: {'uid': userId, 'install': deviceId},
     );
   }
 
@@ -317,6 +431,23 @@ class AuthService {
     final random = Random.secure();
     final code = List.generate(_otpLength, (_) => random.nextInt(10)).join();
     return code;
+  }
+
+  /// A per-challenge random salt (hex), stored alongside the code hash.
+  String _generateSalt() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  /// Generates a valid, unique placeholder username.
+  ///
+  /// Must satisfy the schema CHECK `^[a-z0-9_]{3,32}$`. The real username is
+  /// chosen by the user during profile setup.
+  String _generatePlaceholderUsername() {
+    final random = Random.secure();
+    final suffix = List.generate(10, (_) => random.nextInt(10)).join();
+    return 'athur_$suffix';
   }
 
   String _mintJwt({

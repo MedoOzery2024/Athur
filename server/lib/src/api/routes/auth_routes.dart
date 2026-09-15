@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -191,18 +193,49 @@ class AuthRoutes {
     }
 
     final row = rows.first;
-    final avatarKey = row[5] as String?;
-    final avatarUrl = avatarKey != null
-        ? '${request.headers['host'] ?? 'localhost:8080'}/api/v1/media/$avatarKey'
-        : null;
+    // The driver returns some columns as raw UTF-8 bytes when it cannot infer a
+    // concrete type (notably values from a LEFT JOIN). Decoding explicitly
+    // avoids "Converting object to an encodable object failed: Instance of
+    // 'UndecodedBytes'" when the response is JSON-encoded.
+    final avatarKey = _asText(row[5]);
+    final host = request.headers['host'] ?? 'localhost:8080';
+    // Serve media over the same scheme the request arrived on (https via a
+    // tunnel/reverse proxy, http locally).
+    final scheme = request.headers['x-forwarded-proto'] ?? 'http';
+    final avatarUrl =
+        avatarKey != null ? '$scheme://$host/api/v1/media/$avatarKey' : null;
     return Json.ok({
-      'id': row[0].toString(),
-      'username': row[1],
-      'status': row[2],
-      'display_name': row[3],
-      'bio': row[4],
+      'id': _asText(row[0]),
+      'username': _asText(row[1]),
+      'status': _asText(row[2]),
+      'display_name': _asText(row[3]),
+      'bio': _asText(row[4]),
       'avatar_url': avatarUrl,
     });
+  }
+
+  /// Converts a database value to a JSON-safe string.
+  ///
+  /// Handles `UndecodedBytes` (raw UTF-8 from the driver), null and other
+  /// scalar types so responses never fail to encode.
+  static String? _asText(Object? value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    if (value is List<int>) return utf8.decode(value);
+    // The postgres driver may hand back an `UndecodedBytes` wrapper instead of
+    // a String. Its `toString()` is useless, so decode it via its bytes when
+    // available, falling back to its textual form only as a last resort.
+    // `UndecodedBytes` exposes its raw bytes through a getter; reach it
+    // reflectively via `dynamic` so this file does not depend on the driver's
+    // internal type. If that fails, fall back to a plain toString().
+    try {
+      // ignore: avoid_dynamic_calls
+      final Object? bytes = (value as dynamic).bytes as Object?;
+      if (bytes is List<int>) return utf8.decode(bytes);
+    } catch (_) {
+      // Not byte-backed — fall through.
+    }
+    return value.toString();
   }
 
   Future<Response> _updateProfile(Request request) async {

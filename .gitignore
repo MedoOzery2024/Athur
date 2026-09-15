@@ -100,6 +100,12 @@ ngrok_err.txt
 # Local build/run logs
 *.txt
 !docs/**/*.txt
+# Throwaway request payloads used while smoke-testing the API
+/otp_*.json
+/o*.json
+/p.json
+/p2.json
+/v*.json
 # Kotlin/Gradle session files
 **/.kotlin/sessions/
 **/build_log*.txt

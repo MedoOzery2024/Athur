@@ -73,14 +73,35 @@ class Database {
   ///
   /// Always use parameters — never interpolate user input into SQL, which
   /// would enable SQL injection (project spec §25).
-  /// `parameters` accepts a positional `List` or a named `Map` matching the
-  /// `@name` placeholders in the query (postgres v3 desugars `@name`).
+  ///
+  /// `parameters` accepts either:
+  /// - a positional `List` (query uses `$1, $2, …`), or
+  /// - a named `Map` (query uses `@name` placeholders).
+  ///
+  /// IMPORTANT: the underlying `postgres` v3 driver rejects a plain Map with
+  /// "Maps are only supported by `Sql.named`". Callers across the codebase pass
+  /// `{'id': …}`, so we wrap any Map in [Sql.named] here — one place instead of
+  /// dozens of call sites, and impossible to forget in new code.
   Future<Result> execute(String sql, {Object? parameters}) {
     final pool = _pool;
     if (pool == null) {
       throw StateError('Cannot execute queries on a fake Database instance.');
     }
-    return pool.execute(sql, parameters: parameters);
+    return pool.execute(_query(sql, parameters), parameters: parameters);
+  }
+
+  /// Wraps a statement in [Sql.named] when the caller supplied a named-
+  /// parameter Map.
+  ///
+  /// Why this is needed: the `postgres` v3 driver accepts `parameters: {...}`
+  /// (a Map) ONLY when the statement itself is a [Sql.named] value. Passing a
+  /// plain String with a Map throws "Maps are only supported by `Sql.named`".
+  /// Callers throughout the codebase use `@name` placeholders with Maps, so
+  /// the wrapping is applied here — once, centrally — instead of at every call
+  /// site. Lists (positional `$1` parameters) are passed through untouched.
+  static Object _query(String sql, Object? parameters) {
+    if (parameters is Map) return Sql.named(sql);
+    return sql;
   }
 
   /// Runs statements inside a single transaction.
@@ -89,17 +110,43 @@ class Database {
   /// delivery-status rows + chat last-message update). If the callback throws,
   /// everything rolls back — the client is never told a write succeeded before
   /// the transaction actually committed (project spec §57).
-  Future<T> transaction<T>(Future<T> Function(TxSession session) action) {
+  ///
+  /// The callback receives an [AthurTx], whose `execute` applies the same
+  /// [Sql.named] handling as [execute], so callers can use `{\@name: value}`
+  /// maps consistently inside and outside transactions.
+  Future<T> transaction<T>(Future<T> Function(AthurTx tx) action) {
     final pool = _pool;
     if (pool == null) {
       throw StateError('Cannot run transactions on a fake Database instance.');
     }
-    return pool.runTx(action);
+    return pool.runTx((session) => action(AthurTx._(session)));
   }
 
   Future<void> close() async {
     final pool = _pool;
     if (pool != null) await pool.close();
+  }
+}
+
+/// A transaction handle used by [Database.transaction].
+///
+/// It only exposes what the application actually needs — a parameterised
+/// `execute` — so the complex driver session interface does not leak, and the
+/// [Sql.named] wrapping stays consistent.
+class AthurTx {
+  AthurTx._(this._session);
+
+  final TxSession _session;
+
+  /// Executes a statement inside the transaction.
+  ///
+  /// Accepts a named-parameter Map (query uses `@name`) or a positional List
+  /// (query uses `$1, $2, …`), exactly like [Database.execute].
+  Future<Result> execute(String sql, {Object? parameters}) {
+    return _session.execute(
+      Database._query(sql, parameters),
+      parameters: parameters,
+    );
   }
 }
 
