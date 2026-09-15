@@ -1,5 +1,5 @@
 # =============================================================================
-# ATHUR · Start the backend server
+# ATHUR - Start the backend server
 # =============================================================================
 # Starts the Dart/Shelf API + WebSocket server that the app talks to.
 #
@@ -21,14 +21,14 @@ $ErrorActionPreference = 'Stop'
 
 $env:Path = "D:\flutter\bin;$env:Path"
 
-Write-Host "Athur · starting backend" -ForegroundColor Cyan
+Write-Host "Athur - starting backend" -ForegroundColor Cyan
 
 Set-Location (Join-Path $PSScriptRoot 'server')
 
 # Confirm the .env exists so failures are obvious rather than mysterious.
 $envFile = Join-Path $PSScriptRoot '.env'
 if (-not (Test-Path $envFile)) {
-    Write-Warning ".env not found at $envFile — the server will refuse to start."
+    Write-Warning ".env not found at $envFile - the server will refuse to start."
 }
 
 dart run bin/server.dart
