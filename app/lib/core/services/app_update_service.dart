@@ -13,8 +13,11 @@ class AppUpdateService {
 
   static final AppUpdateService instance = AppUpdateService._();
 
-  /// GitHub repository info (update these values).
-  static const _owner = 'medo444'; // TODO: Change to your GitHub username
+  /// GitHub repository that hosts the release APK.
+  ///
+  /// These MUST match the real repository exactly, otherwise the check silently
+  /// fails with a 404 and the button appears broken.
+  static const _owner = 'MedoOzery2024';
   static const _repo = 'Athur';
 
   http.Client? _downloadClient;

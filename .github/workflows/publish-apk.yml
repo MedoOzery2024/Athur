@@ -1,0 +1,130 @@
+# =============================================================================
+# ATHUR · Publish APK release (makes the in-app "Check for updates" work)
+# =============================================================================
+# WHY THIS WORKFLOW EXISTS
+#   The app's update button reads:
+#     GET https://api.github.com/repos/<owner>/<repo>/releases/latest
+#   So it needs a real GitHub *Release* that carries an .apk asset. The plain
+#   CI workflow only uploads a build artifact, which the releases API does not
+#   return — that is why the button did nothing.
+#
+# WHAT IT DOES
+#   On every push to `main`, it:
+#     1. reads the version from app/pubspec.yaml (e.g. 1.0.0+1)
+#     2. builds a release APK pointing at the public backend
+#     3. creates/updates a GitHub Release tagged v<version> with the APK
+#
+# AFTER IT RUNS
+#   The Release exists → the app's update check finds it → the button works.
+#
+# REQUIRED REPOSITORY SECRETS (Settings → Secrets and variables → Actions):
+#   GOOGLE_SERVICES_JSON  - contents of app/android/app/google-services.json
+#   ATHUR_API_BASE        - public base URL of the backend, e.g.
+#                           https://your-ngrok-domain.ngrok-free.dev
+#   (Optional) ATHUR_JWT_SECRETBUILD - not needed here.
+#
+# NOTE: for the app to read releases of a PRIVATE repo, the request must be
+# authenticated. The simplest reliable setup is to make the repository PUBLIC,
+# or to keep releases public. See docs/UPDATES.md for the trade-offs.
+# =============================================================================
+
+name: Publish APK Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+# Needed so the workflow can create a Release and upload assets.
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build APK & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from pubspec.yaml
+        id: ver
+        working-directory: app
+        run: |
+          # Line looks like:  version: 1.0.0+1
+          LINE=$(grep -E '^version:' pubspec.yaml | head -n1 | sed 's/version:[[:space:]]*//')
+          NAME=${LINE%%+*}        # 1.0.0
+          CODE=${LINE##*+}        # 1
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $NAME ($CODE)"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Restore google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::Secret GOOGLE_SERVICES_JSON is not set. Add it in the repository settings."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/android/app/google-services.json
+
+      - name: Build release APK
+        working-directory: app
+        run: |
+          # If ATHUR_API_BASE is not set the app falls back to its built-in
+          # per-platform default (10.0.2.2 for the Android emulator), which is
+          # fine for local testing but NOT for a real phone. Warn so it is
+          # obvious rather than silent.
+          if [ -z "${{ secrets.ATHUR_API_BASE }}" ]; then
+            echo "::warning::Secret ATHUR_API_BASE is not set — the APK will use the emulator default. Add it for real-device use."
+            flutter build apk --release
+          else
+            flutter build apk --release \
+              --dart-define=ATHUR_API_BASE=${{ secrets.ATHUR_API_BASE }}
+          fi
+
+      - name: Compute APK checksum
+        id: apk
+        run: |
+          APK=app/build/app/outputs/flutter-apk/app-release.apk
+          sha256sum "$APK" | awk '{print $1}' > apk.sha256
+          echo "sha256=$(cat apk.sha256)" >> "$GITHUB_OUTPUT"
+          ls -lh "$APK"
+
+      - name: Create / update the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.name }}
+          name: Athur v${{ steps.ver.outputs.name }}
+          body: |
+            Athur v${{ steps.ver.outputs.name }} (build ${{ steps.ver.outputs.code }})
+
+            Build number: ${{ github.run_number }}
+            Commit: ${{ github.sha }}
+
+            Run the app's Settings → Check for updates to install this version.
+          files: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            apk.sha256
+          generate_release_notes: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
